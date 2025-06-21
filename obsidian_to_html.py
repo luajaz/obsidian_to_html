@@ -60,7 +60,7 @@ def sub_links(markdown_content):
                     line = line[:inicio] + link_page + line[fim:]
 
                 else:
-                    line = line[:inicio] + f'[{link_text}](https://luajaz.nekoweb.org/notas/{path_link_page[18:-3]}.html)' + line[fim:]
+                    line = line[:inicio] + f'[{link_text}](https://luajaz.nekoweb.org/notas{path_link_page[18:-3]}.html)' + line[fim:]
 
             # caso não haja texto alternativo
             else:
@@ -85,16 +85,25 @@ def sub_links(markdown_content):
 
     return markdown_content
 
-def markdown_html(markdown_str, filename):
+def markdown_html(markdown_str, filename, html_dir_path):
     html_template = open('template.html', 'r').read()
 
     # remover '-' do titulo em caso de pagina indice
     if filename[0] == '-':
         filename = filename[1:]
 
-    html_str = pypandoc.convert_text(markdown_str, format='markdown-blank_before_header', to='html', extra_args=['--mathjax'])
+    html_str = pypandoc.convert_text(markdown_str, format='commonmark+yaml_metadata_block+tex_math_dollars+footnotes', to='html', extra_args=['--mathjax'])
 
-    return html_template.replace('NOTE_NAME_GOES_HERE', filename[:-3].replace('_', ' ').upper()).replace('NOTE_GOES_HERE', html_str)
+    # separar path numa lista
+    path_list = html_dir_path[html_dir_path.find('/notas/')+1:].split("/")
+    # remover index
+    path_list = [i for i in path_list if i != 'index.html']
+    # formar html
+    path = "/"
+    for i in range(len(path_list)):
+        path += f'<a href="/{"/".join(path_list[:i+1])}">{path_list[i].replace('_', ' ').replace('.html', '')}</a>/'
+
+    return html_template.replace('NOTE_NAME_GOES_HERE', filename[:-3].replace('_', ' ').upper()).replace('NOTE_GOES_HERE', html_str).replace('NOTE_PATH_GOES_HERE', path)
 
 def generate_html():
     img_paths = {}
@@ -123,41 +132,46 @@ def generate_html():
                     content = f.readlines()
                     f.close()
 
-                    if '---' in content[0]:
-                        content.pop(0)
-                        while '---' not in content[0]:
+                    try:
+                        if '---' in content[0]:
                             content.pop(0)
-                        content.pop(0)
+                            while '---' not in content[0]:
+                                content.pop(0)
+                            content.pop(0)
 
-                    content = sub_imgs(content)
-                    content = sub_links(content)
+                        content = sub_imgs(content)
+                        content = sub_links(content)
 
-                    content_str = ''
+                        content_str = ''
 
-                    for i in content:
-                        content_str += i
+                        for i in content:
+                            content_str += i
 
-                    # content_str = content_str.replace('<', '&lt;')
-                    
-                    # Fazer diretório (se não existe)
-                    html_dir_path = 'notas/' + dirpath[18:].replace(' ', '_')
-                    html_dir_path = unidecode(html_dir_path.lower())
-                    os.makedirs(html_dir_path.lower(), exist_ok=True)
+                        # content_str = content_str.replace('<', '&lt;')
+                        
+                        # Fazer diretório (se não existe)
+                        html_dir_path = VAULT_PATH + '/notas' + dirpath[18:].replace(' ', '_')
+                        html_dir_path = unidecode(html_dir_path.lower())
+                        os.makedirs(html_dir_path.lower(), exist_ok=True)
 
-                    # criar .html
-                    if filename[0] == '-':
-                        html_path  =html_dir_path + '/' + 'index.html'
-                    else:
-                        html_path = html_dir_path + '/' + unidecode(filename[:-3].replace(' ', '_').lower()) + '.html'
-                    with open(html_path, 'w', encoding='utf-8') as f:
-                        f.write(markdown_html(content_str, filename))
+                        # criar .html
+                        if filename[0] == '-':
+                            html_path  =html_dir_path + '/' + 'index.html'
+                        else:
+                            html_path = html_dir_path + '/' + unidecode(filename[:-3].replace(' ', '_').lower()) + '.html'
+                        
+                        with open(html_path, 'w', encoding='utf-8') as f:
+                            f.write(markdown_html(content_str, filename, html_path))
+                        
+                    except:
+                        pass
 
     # copy images to html directories
-    os.makedirs('./notas/images', exist_ok=True)
+    os.makedirs(VAULT_PATH+'/notas/images', exist_ok=True)
 
     for imgname in img_paths:
         name = unidecode(imgname.lower().replace(' ', '_'))
-        shutil.copy(img_paths[imgname], f'./notas/images/{name}')
+        shutil.copy(img_paths[imgname], f'{VAULT_PATH}/notas/images/{name}')
         
 
 
